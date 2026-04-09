@@ -31,27 +31,66 @@ def worker_init_fn_seed(worker_id):
     np.random.seed(seed)
 
 
+# class Datasets(Dataset):
+#     def __init__(self, data_dir):
+#         self.data_dir = data_dir
+#         self.imgs = []
+#         dir = data_dir
+#         self.imgs += glob(os.path.join(dir, "*.jpg"))
+#         self.imgs += glob(os.path.join(dir, "*.png"))
+#         self.imgs.sort()
+
+#     def __getitem__(self, item):
+#         image_ori = self.imgs[item]
+#         name = os.path.basename(image_ori)
+#         image = Image.open(image_ori).convert("RGB")
+#         self.im_height, self.im_width = image.size
+#         if self.im_height % 128 != 0 or self.im_width % 128 != 0:
+#             self.im_height = self.im_height - self.im_height % 128
+#             self.im_width = self.im_width - self.im_width % 128
+#         self.transform = transforms.Compose(
+#             [transforms.CenterCrop((self.im_width, self.im_height)), transforms.ToTensor()]
+#         )
+#         img = self.transform(image)
+#         return img, name
+
+#     def __len__(self):
+#         return len(self.imgs)
+
+
+### 2026/4/9 wyj:
 class Datasets(Dataset):
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.imgs = []
-        dir = data_dir
-        self.imgs += glob(os.path.join(dir, "*.jpg"))
-        self.imgs += glob(os.path.join(dir, "*.png"))
+        self.imgs += glob(os.path.join(data_dir, "*.jpg"))
+        self.imgs += glob(os.path.join(data_dir, "*.png"))
+        self.imgs += glob(os.path.join(data_dir, "*.jpeg"))
         self.imgs.sort()
 
     def __getitem__(self, item):
-        image_ori = self.imgs[item]
-        name = os.path.basename(image_ori)
-        image = Image.open(image_ori).convert("RGB")
-        self.im_height, self.im_width = image.size
-        if self.im_height % 128 != 0 or self.im_width % 128 != 0:
-            self.im_height = self.im_height - self.im_height % 128
-            self.im_width = self.im_width - self.im_width % 128
-        self.transform = transforms.Compose(
-            [transforms.CenterCrop((self.im_width, self.im_height)), transforms.ToTensor()]
-        )
-        img = self.transform(image)
+        image_path = self.imgs[item]
+        name = os.path.splitext(os.path.basename(image_path))[0]
+
+        image = Image.open(image_path).convert("RGB")
+        w, h = image.size   # PIL返回的是(width, height)
+
+        # 裁成不超过原图、且能被128整除的最大尺寸
+        crop_w = w - (w % 128)
+        crop_h = h - (h % 128)
+
+        # 防止极端情况下出现0
+        if crop_w == 0:
+            crop_w = w
+        if crop_h == 0:
+            crop_h = h
+
+        transform = transforms.Compose([
+            transforms.CenterCrop((crop_h, crop_w)),  # 注意这里是(h, w)
+            transforms.ToTensor(),
+        ])
+
+        img = transform(image)
         return img, name
 
     def __len__(self):
@@ -106,6 +145,30 @@ def get_loader(config):
             root=config.DATA.test_data_dir, train=False, transform=transform_test, download=False
         )
 ###2026/4/2 wyj：增加 MUSeg 数据读取代码
+    # elif config.DATA.DATASET == "MUSeg":
+    #     transform_train = transforms.Compose(
+    #         [
+    #             transforms.RandomCrop((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE)),
+    #             transforms.RandomHorizontalFlip(p=0.5),
+    #             transforms.ToTensor(),
+    #         ]
+    #     )
+
+    #     transform_test = transforms.Compose(
+    #         [
+    #             transforms.CenterCrop((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE)),  #
+    #             transforms.ToTensor(),
+    #         ]
+    #     )
+
+    #     train_dataset = datasets.ImageFolder(
+    #         root=config.DATA.train_data_dir,
+    #         transform=transform_train,
+    #     )
+    #     # test_dataset = Datasets(data_dir=config.DATA.test_data_dir)
+    #     test_dataset = datasets.ImageFolder(
+    #         root=config.DATA.test_data_dir, transform=transform_test
+    #     )
     elif config.DATA.DATASET == "MUSeg":
         transform_train = transforms.Compose(
             [
@@ -115,21 +178,12 @@ def get_loader(config):
             ]
         )
 
-        transform_test = transforms.Compose(
-            [
-                transforms.CenterCrop((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE)),  #
-                transforms.ToTensor(),
-            ]
-        )
-
         train_dataset = datasets.ImageFolder(
             root=config.DATA.train_data_dir,
             transform=transform_train,
         )
-        # test_dataset = Datasets(data_dir=config.DATA.test_data_dir)
-        test_dataset = datasets.ImageFolder(
-            root=config.DATA.test_data_dir, transform=transform_test
-        )
+        # 整图测试：不再用ImageFolder+CenterCrop(128,128)
+        test_dataset = Datasets(config.DATA.test_data_dir)
     elif config.DATA.DATASET == "DIV2K":
         transform_train = transforms.Compose(
             [

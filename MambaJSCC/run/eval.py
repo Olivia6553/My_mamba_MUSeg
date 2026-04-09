@@ -69,13 +69,21 @@ def eval_MambaJSCC(config):
     decoder.eval()
     performance_all = []
 
-#2026/4/8 wyj:增6行
+# #2026/4/8 wyj:增6行
+#     save_vis = True
+#     save_max = 5
+#     saved_count = 0
+#     save_snr = config.CHANNEL.SNR[0]
+#     save_dir = "./vis_results"
+#     os.makedirs(save_dir, exist_ok=True)
+
+#2026/4/9 wyj:增6行
     save_vis = True
-    save_max = 5
+    save_max = 6
     saved_count = 0
-    save_snr = config.CHANNEL.SNR[0]
-    save_dir = "./vis_results"
-    os.makedirs(save_dir, exist_ok=True)
+    save_snr = config.CHANNEL.SNR[-1]
+    save_dir = "./vis_results_full"
+    os.makedirs(save_dir, exist_ok=True)   
 
     # SNR_list = [20] #config.CHANNEL.SNR
     SNR_list = config.CHANNEL.SNR
@@ -131,7 +139,25 @@ def eval_MambaJSCC(config):
                 start_decoder = time.time()
                 recon_image = decoder(received, SNR)
                 end_decocer = time.time()
-###2026/4/8 wyj:
+# ###2026/4/8 wyj:
+#                 if save_vis and SNR == save_snr and saved_count < save_max:
+#                     bsz = input_image.size(0)
+#                     for b in range(bsz):
+#                         if saved_count >= save_max:
+#                             break
+
+#                         orig = input_image[b].detach().cpu().clamp(0, 1)
+#                         recon = recon_image[b].detach().cpu().clamp(0, 1)
+
+#                         pair = torch.cat([orig, recon], dim=2)
+
+#                         save_image(
+#                             pair,
+#                             os.path.join(save_dir, f"pair_{saved_count:02d}_snr{SNR}.png")
+#                         )
+
+#                         saved_count += 1
+###2026/4/9 wyj:
                 if save_vis and SNR == save_snr and saved_count < save_max:
                     bsz = input_image.size(0)
                     for b in range(bsz):
@@ -143,11 +169,16 @@ def eval_MambaJSCC(config):
 
                         pair = torch.cat([orig, recon], dim=2)
 
-                        save_image(
-                            pair,
-                            os.path.join(save_dir, f"pair_{saved_count:02d}_snr{SNR}.png")
+                        # 如果target是文件名列表，就取对应名字
+                        if isinstance(target, (list, tuple)):
+                            img_name = str(target[b])
+                        else:
+                            img_name = f"img_{saved_count:02d}"
+                        
+                        save_path = os.path.join(
+                            save_dir, f"{saved_count:02d}_{img_name}_snr{SNR}.png"
                         )
-
+                        save_image(pair, save_path)
                         saved_count += 1
 
 
