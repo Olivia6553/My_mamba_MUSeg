@@ -1,0 +1,10 @@
+build/
+*.so
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.run
+*.egg-info
+dist/
+*.o
