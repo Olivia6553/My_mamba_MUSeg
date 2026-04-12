@@ -61,7 +61,7 @@ def eval_MambaJSCC(config):
 
     channel = Channel(config)
     B, C, H, W = next(iter(test_loader))[0].shape
-    # test_mem_and_comp(config, encoder, decoder, input_size=(H, W))
+    test_mem_and_comp(config, encoder, decoder, input_size=(H, W))
 
     print(H, W)
     matrix = eval_matrix(config)
@@ -337,8 +337,71 @@ def eval_MambaJSCC_with_SNR_error(config, mode=2):
         print(f"performance with {error}:", performance_all)
 
 
+# def test_mem_and_comp(config, encoder, decoder, input_size=(256, 256)):
+#     from torch_operation_counter import OperationsCounterMode
+
+#     class net(torch.nn.Module):
+#         def __init__(self, encoder, decoder):
+#             super().__init__()
+#             self.encoder = encoder
+#             self.decoder = decoder
+
+#         def forward(self, input):
+
+#             SNR = 20
+#             x = self.encoder(input, SNR)
+#             y = self.decoder(x, SNR)
+#             return y
+
+#     network = net(encoder, decoder).cuda()
+#     input = torch.randn(1, 3, input_size[0], input_size[1]).cuda()
+#     with OperationsCounterMode(network) as ops_counter:
+#         network(input)
+#     # macs,params=profile(network,inputs=(input,))
+#     # macs, params = clever_format([macs, params], "%.5f")
+#     print(
+#         "MACs:{}G. Paras:{}M.".format(
+#             ops_counter.total_operations / 1e9,
+#             sum([p.numel() for p in [*network.parameters()][:-1]]) / 1e6,
+#         )
+#     )
+
+# ### 2026/4/10 wyj:参数量输出
+# def test_mem_and_comp(config, encoder, decoder, input_size=(256, 256)):
+#     from torch_operation_counter import OperationsCounterMode
+
+#     class net(torch.nn.Module):
+#         def __init__(self, encoder, decoder):
+#             super().__init__()
+#             self.encoder = encoder
+#             self.decoder = decoder
+
+#         def forward(self, input):
+#             SNR = 20
+#             x = self.encoder(input, SNR)
+#             y = self.decoder(x, SNR)
+#             return y
+
+#     network = net(encoder, decoder).cuda()
+#     input = torch.randn(1, 3, input_size[0], input_size[1]).cuda()
+
+#     with OperationsCounterMode(network) as ops_counter:
+#         network(input)
+
+#     encoder_params = sum(p.numel() for p in encoder.parameters())
+#     decoder_params = sum(p.numel() for p in decoder.parameters())
+#     total_params = sum(p.numel() for p in network.parameters())
+#     trainable_params = sum(p.numel() for p in network.parameters() if p.requires_grad)
+
+#     print(f"MACs: {ops_counter.total_operations / 1e9:.4f} G")
+#     print(f"Encoder params: {encoder_params / 1e6:.4f} M")
+#     print(f"Decoder params: {decoder_params / 1e6:.4f} M")
+#     print(f"Total params: {total_params / 1e6:.4f} M")
+#     print(f"Trainable params: {trainable_params / 1e6:.4f} M")
+
+### 2026/4/12 wyj:参数量输出version2 （只能计算parameters，无法计算MACS）
 def test_mem_and_comp(config, encoder, decoder, input_size=(256, 256)):
-    from torch_operation_counter import OperationsCounterMode
+    #from torch_operation_counter import OperationsCounterMode ##算macs
 
     class net(torch.nn.Module):
         def __init__(self, encoder, decoder):
@@ -347,21 +410,28 @@ def test_mem_and_comp(config, encoder, decoder, input_size=(256, 256)):
             self.decoder = decoder
 
         def forward(self, input):
-
             SNR = 20
             x = self.encoder(input, SNR)
             y = self.decoder(x, SNR)
             return y
 
     network = net(encoder, decoder).cuda()
-    input = torch.randn(1, 3, input_size[0], input_size[1]).cuda()
-    with OperationsCounterMode(network) as ops_counter:
-        network(input)
-    # macs,params=profile(network,inputs=(input,))
-    # macs, params = clever_format([macs, params], "%.5f")
-    print(
-        "MACs:{}G. Paras:{}M.".format(
-            ops_counter.total_operations / 1e9,
-            sum([p.numel() for p in [*network.parameters()][:-1]]) / 1e6,
-        )
-    )
+
+    encoder_params = sum(p.numel() for p in encoder.parameters())
+    decoder_params = sum(p.numel() for p in decoder.parameters())
+    total_params = sum(p.numel() for p in network.parameters())
+    trainable_params = sum(p.numel() for p in network.parameters() if p.requires_grad)
+
+    print(f"Encoder params: {encoder_params / 1e6:.4f} M")
+    print(f"Decoder params: {decoder_params / 1e6:.4f} M")
+    print(f"Total params: {total_params / 1e6:.4f} M")
+    print(f"Trainable params: {trainable_params / 1e6:.4f} M")
+
+    # input = torch.randn(1, 3, input_size[0], input_size[1]).cuda() ## 算macs
+
+    # try:
+    #     with OperationsCounterMode(network) as ops_counter:
+    #         network(input)
+    #     print(f"MACs: {ops_counter.total_operations / 1e9:.4f} G")
+    # except Exception as e:
+    #     print(f"MACs统计失败: {e}")
