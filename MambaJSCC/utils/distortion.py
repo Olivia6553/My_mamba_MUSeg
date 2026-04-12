@@ -246,14 +246,14 @@ class loss_matrix(torch.nn.Module):
         plain_loss = diff2.sum() / x.shape[0]
 
         if mask is not None and self.config.TRAIN.SEMANTIC_WEIGHT:
-            print("inside MSE_loss, mask is None?", mask is None)
-            print("mask before repeat:", mask.shape, mask.min().item(), mask.max().item())
+            #print("inside MSE_loss, mask is None?", mask is None)
+            #print("mask before repeat:", mask.shape, mask.min().item(), mask.max().item())
 
             # 如果是单通道mask，扩成3通道，和图像通道对齐
             if mask.shape[1] == 1:
                 mask = mask.repeat(1, x.shape[1], 1, 1)
 
-            print("mask after repeat:", mask.shape, mask.min().item(), mask.max().item())
+            #print("mask after repeat:", mask.shape, mask.min().item(), mask.max().item())
 
             weight = 1.0 + self.config.TRAIN.SEM_WEIGHT * mask
 
@@ -262,12 +262,12 @@ class loss_matrix(torch.nn.Module):
 
             rec_loss = (diff2 * weight).sum() / x.shape[0]
 
-            print("plain_loss =", plain_loss.item())
-            print("weighted_loss =", rec_loss.item())
+            # print("plain_loss =", plain_loss.item())
+            # print("weighted_loss =", rec_loss.item())
         else:
-            print("inside MSE_loss, mask is None?", mask is None)
+            # print("inside MSE_loss, mask is None?", mask is None)
             rec_loss = plain_loss
-            print("plain_loss =", plain_loss.item())
+            # print("plain_loss =", plain_loss.item())
 
         return rec_loss
 

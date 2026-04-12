@@ -179,19 +179,19 @@ class MUSegSemanticTrainDataset(Dataset):
         label = torch.from_numpy(np.array(label)).long()
 
         # 生成二值重点区域 mask
-        sem_mask = torch.zeros_like(label, dtype=torch.float32)
+        sem_mask = torch.zeros_like(label, dtype=torch.bool)
         for cls_id in self.sem_ids:
             sem_mask = sem_mask | (label == cls_id)
 
         sem_mask = sem_mask.float().unsqueeze(0)   # [1, H, W]
 
-        ## 2026/4/12 wyj调试打印
-        if idx < 2:
-            print("img_path =", img_path)
-            print("label_path =", label_path)
-            print("image shape =", image.shape)
-            print("sem_mask shape =", sem_mask.shape)
-            print("sem_mask min/max =", sem_mask.min().item(), sem_mask.max().item())
+        # ## 2026/4/12 wyj调试打印
+        #  if idx < 2:
+        #     print("img_path =", img_path)
+        #     print("label_path =", label_path)
+        #     print("image shape =", image.shape)
+        #     print("sem_mask shape =", sem_mask.shape)
+        #     print("sem_mask min/max =", sem_mask.min().item(), sem_mask.max().item())
 
         return image, sem_mask
 
@@ -240,21 +240,21 @@ def get_loader(config):
     #     test_dataset = datasets.ImageFolder(
     #         root=config.DATA.test_data_dir, transform=transform_test
     #     )
-    elif config.DATA.DATASET == "MUSeg":
-        transform_train = transforms.Compose(
-            [
-                transforms.RandomCrop((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE)),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.ToTensor(),
-            ]
-        )
+    # elif config.DATA.DATASET == "MUSeg":
+    #     transform_train = transforms.Compose(
+    #         [
+    #             transforms.RandomCrop((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE)),
+    #             transforms.RandomHorizontalFlip(p=0.5),
+    #             transforms.ToTensor(),
+    #         ]
+    #     )
 
-        train_dataset = datasets.ImageFolder(
-            root=config.DATA.train_data_dir,
-            transform=transform_train,
-        )
-        # 整图测试：不再用ImageFolder+CenterCrop(128,128)
-        test_dataset = Datasets(config.DATA.test_data_dir)
+    #     train_dataset = datasets.ImageFolder(
+    #         root=config.DATA.train_data_dir,
+    #         transform=transform_train,
+    #     )
+    #     # 整图测试：不再用ImageFolder+CenterCrop(128,128)
+    #     test_dataset = Datasets(config.DATA.test_data_dir)
 
 
     elif config.DATA.DATASET == "MUSeg":

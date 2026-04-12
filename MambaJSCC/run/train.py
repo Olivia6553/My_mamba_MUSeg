@@ -54,21 +54,21 @@ def train_MambaJSCC(config):
         
         with tqdm(train_loader, dynamic_ncols=False) as tqdmTrainData:
             ### 2026/4/12 wyj: 语义权重
-            max_debug_batches = 2 ##测试
+            #max_debug_batches = 2 ##测试
             #for i, (input_image, target) in enumerate(tqdmTrainData):            
             for i, batch in enumerate(tqdmTrainData):
                 if config.DATA.DATASET == "MUSeg" and config.TRAIN.SEMANTIC_WEIGHT:
                     input_image, sem_mask = batch
                     sem_mask = sem_mask.cuda()
                     
-                    print("from loader input_image:", input_image.shape) ## 2026/4/12 wyj 调试
-                    print("from loader sem_mask:", sem_mask.shape, sem_mask.min().item(), sem_mask.max().item())   ## 2026/4/12 wyj 调试
+                    #print("from loader input_image:", input_image.shape) ## 2026/4/12 wyj 调试
+                    #print("from loader sem_mask:", sem_mask.shape, sem_mask.min().item(), sem_mask.max().item())   ## 2026/4/12 wyj 调试
                     
                 else:
                     input_image, target = batch
                     sem_mask = None
 
-                    print("from loader input_image:", input_image.shape)
+                    #print("from loader input_image:", input_image.shape)
                 #save_image(input_image,"/home/wutong/code/ManbaJSCC/{}.png".format(i))
                 SNR_list=config.CHANNEL.SNR
                 SNR_index=torch.randint(0,len(SNR_list),(1,)).item()
@@ -124,9 +124,9 @@ def train_MambaJSCC(config):
                 optimizer_decoder.step()
 
                 ##2026/4/12 wyj 测试
-                if i + 1 >= max_debug_batches:
-                    print("[DEBUG] stop after 2 batches")
-                    break
+                # if i + 1 >= max_debug_batches:
+                #     print("[DEBUG] stop after 2 batches")
+                #     break
 
                 tqdmTrainData.set_postfix({
                     'e':e,

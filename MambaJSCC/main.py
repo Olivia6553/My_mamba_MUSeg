@@ -73,7 +73,7 @@ class args:
     project_path='/home/wengyijia/mambajscc/MambaJSCC/'  ### change here to your own path
     model_config_path = project_path + 'configs/vssm/vssm_tiny_{}.yaml'.format(config_name)
     train_config_path= project_path + 'configs/train/vssm_tiny_{}.yaml'.format(config_name)
-    mode='train'
+    mode='eval'
     
 
 
