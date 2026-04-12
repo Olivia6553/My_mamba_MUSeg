@@ -12,6 +12,10 @@ import yaml
 from yacs.config import CfgNode as CN
 
 
+
+
+
+
 _C = CN()
 
 # Base config files
@@ -33,6 +37,10 @@ _C.DATA.IMG_SIZE = 256
 # path
 _C.DATA.train_data_dir= r"/mnt/wutong/datasets/DIV2K/DIV2K_train_HR"
 _C.DATA.test_data_dir= r"/mnt/wutong/datasets/DIV2K/DIV2K_valid_HR"
+
+### 2026/4/12 wyj: 语义权重
+_C.DATA.train_label_dir = ''
+
 # Interpolation to resize image (random, bilinear, bicubic)
 _C.DATA.INTERPOLATION = 'bicubic'
 # Use zipped dataset instead of folder dataset
@@ -168,6 +176,13 @@ _C.TRAIN.LOSS='MSE'
 _C.TRAIN.DATA_PARALLEL=False
 _C.TRAIN.EVAL_MATRIX='PSNR'
 _C.TRAIN.GAN_LOSS=False
+
+### 2026/4/12 wyj: 语义权重
+_C.TRAIN.SEMANTIC_WEIGHT = False
+_C.TRAIN.SEM_WEIGHT = 2.0
+_C.TRAIN.SEM_IDS = []
+
+
 _C.TRAIN.DIS_WEIGHT=0.5
 _C.TRAIN.START_EPOCH=10
 _C.TRAIN.ENCODER_PATH='/mnt/wutong/MambaJSCCcheckpoints/Journal/encoder'

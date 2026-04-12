@@ -210,12 +210,70 @@ class loss_matrix(torch.nn.Module):
         rec_loss = CalcuSSIM(x, y).mean() * x.numel() / x.shape[0]
 
         return rec_loss
-    
-    def MSE_loss(self,x,y):
+
+
+### 2026/4/12 wyj: 语义加权 
+    # def MSE_loss(self,x,y):
         
-        rec_loss = torch.nn.functional.mse_loss(x,y,reduction='sum') / x.shape[0]
+    #     rec_loss = torch.nn.functional.mse_loss(x,y,reduction='sum') / x.shape[0]
+
+    #     return rec_loss
+
+    # def MSE_loss(self, x, y, mask=None):
+    #     diff2 = (x - y) ** 2
+
+    #     if mask is not None and self.config.TRAIN.SEMANTIC_WEIGHT:
+    #         # mask: [B,1,H,W] -> [B,3,H,W]
+    #         if mask.shape[1] == 1:
+    #             mask = mask.repeat(1, x.shape[1], 1, 1)
+
+    #         weight = 1.0 + self.config.TRAIN.SEM_WEIGHT * mask
+
+    #         # 归一化，避免整体loss量级变化太大
+    #         weight = weight / weight.mean(dim=(1, 2, 3), keepdim=True)
+
+    #         rec_loss = (diff2 * weight).sum() / x.shape[0]
+    #     else:
+    #         rec_loss = diff2.sum() / x.shape[0]
+
+    #     return rec_loss
+
+### 2026/4/12 wyj: 语义加权  调试
+    def MSE_loss(self, x, y, mask=None):
+        diff2 = (x - y) ** 2
+
+        # 原始未加权loss，方便对比
+        plain_loss = diff2.sum() / x.shape[0]
+
+        if mask is not None and self.config.TRAIN.SEMANTIC_WEIGHT:
+            print("inside MSE_loss, mask is None?", mask is None)
+            print("mask before repeat:", mask.shape, mask.min().item(), mask.max().item())
+
+            # 如果是单通道mask，扩成3通道，和图像通道对齐
+            if mask.shape[1] == 1:
+                mask = mask.repeat(1, x.shape[1], 1, 1)
+
+            print("mask after repeat:", mask.shape, mask.min().item(), mask.max().item())
+
+            weight = 1.0 + self.config.TRAIN.SEM_WEIGHT * mask
+
+            # 归一化，避免loss整体量级变化太大
+            weight = weight / weight.mean(dim=(1, 2, 3), keepdim=True)
+
+            rec_loss = (diff2 * weight).sum() / x.shape[0]
+
+            print("plain_loss =", plain_loss.item())
+            print("weighted_loss =", rec_loss.item())
+        else:
+            print("inside MSE_loss, mask is None?", mask is None)
+            rec_loss = plain_loss
+            print("plain_loss =", plain_loss.item())
 
         return rec_loss
+
+
+
+
     
     def LPIPS_loss(self,x,y):
         
@@ -223,7 +281,9 @@ class loss_matrix(torch.nn.Module):
         #print(rec_loss)
         return rec_loss
     
-    def forward(self, recon, input, feature, last_layer=None, opt_idx=0, global_step=0):
+### 2026/4/12 wyj: 语义加权
+    #def forward(self, recon, input, feature, last_layer=None, opt_idx=0, global_step=0):
+    def forward(self, recon, input, feature, mask=None, last_layer=None, opt_idx=0, global_step=0):    
         if self.config.TRAIN.GAN_LOSS:
             if opt_idx==0:  ## update autoencoder
             # reconstruction loss
@@ -251,10 +311,19 @@ class loss_matrix(torch.nn.Module):
                 loss=self.disc_loss(logits_real, logits_fake)
                 #print(torch.mean(logits_fake),torch.mean(logits_real))
                 return loss
+        
+### 2026/4/12 wyj: 语义加权
+        # else:
+
+        #     return self.loss(recon, input)
+        
         else:
-
-            return self.loss(recon, input)
-
+            if self.config.TRAIN.LOSS == 'PSNR':
+                return self.MSE_loss(recon, input, mask=mask)
+            elif self.config.TRAIN.LOSS == 'MSSSIM':
+                return self.MSSSIM_loss(recon, input)
+            elif self.config.TRAIN.LOSS == 'LPIPS':
+                return self.LPIPS_loss(recon, input)
         
         return 
 
