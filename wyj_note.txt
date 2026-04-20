@@ -1,0 +1,40 @@
+2026/4/1
+models/encoder.py / models/decoder.py
+: 真正的发送端和接收端主体。
+这里实现了 patch embedding、
+分 stage 的 VSSBlock 堆叠、patch merging / reverse merging、以及最后映射到信道特征/从信道特征恢复图像。
+源码命名仍然保留了很多 VMamba/VSS 的风格。
+
+
+
+2026/4/1 - 2026/4/13
+租服务器跑mamba：不租的话是不是看不出效果？？
+语义分割复现？dis-mine
+改代码、优化mamba
+学用git
+
+####2026/4/2  note
+学习git
+1.push到github上：
+git checkout main
+
+
+2.切换分支：
+git checkout （分支名）
+
+【VGG 预训练模型】它是一个别人已经在 ImageNet 上亿张图片上训练好的 VGG16 神经网络，拿来给你做「图像质量评价」用的。
+你现在跑的 MambaJSCC 是图像联合信源信道编码，需要评价重建图像好不好，所以必须用到它。
+
+【消融实验】三个创新点A、B、C，需要做实验证明 Baseline < A < A+B < A+B+C
+【对比实验】与其他模型的对比
+【泛化实验】在多个数据集上应用，证明泛化能力强
+
+
+为什么更新不到我新建立的分支情况？
+(base) wengyijia@Wengyijia-Legion-Y9000P-IAH7H:~/mambajscc/MambaJSCC$ git fetch
+(base) wengyijia@Wengyijia-Legion-Y9000P-IAH7H:~/mambajscc/MambaJSCC$ git branch
+  main
+* mamba_wyj_test
+(base) wengyijia@Wengyijia-Legion-Y9000P-IAH7H:~/mambajscc/MambaJSCC$ 
+
+###

@@ -1,0 +1,16 @@
+###2026/4/2 wyj:测试Mine数据集
+MODEL:
+  TYPE: vssm
+  NAME: vssm_tiny
+  DROP_PATH_RATE: 0.2
+  VSSM:
+    #EMBED_DIM: [128,192,256,320] 
+    EMBED_DIM: [64,96,128,160] 
+    #DEPTHS: [2, 2, 6, 2]
+    DEPTHS: [1, 1, 3, 1]
+    OUT_CHANS: 32
+    SCAN: 'cross'
+    PE: 'no' 
+    SCAN_NUMBER: 2  # 2 for our MambaJSCC, 4 for the cross scan in VMamba
+    Extent: 'MLP' 
+    channel_input: 'conv' 
