@@ -59,9 +59,48 @@ def worker_init_fn_seed(worker_id):
 
 
 ### 2026/4/9 wyj:
+# class Datasets(Dataset):
+#     def __init__(self, data_dir):
+#         self.data_dir = data_dir
+#         self.imgs = []
+#         self.imgs += glob(os.path.join(data_dir, "*.jpg"))
+#         self.imgs += glob(os.path.join(data_dir, "*.png"))
+#         self.imgs += glob(os.path.join(data_dir, "*.jpeg"))
+#         self.imgs.sort()
+
+#     def __getitem__(self, item):
+#         image_path = self.imgs[item]
+#         name = os.path.splitext(os.path.basename(image_path))[0]
+
+#         image = Image.open(image_path).convert("RGB")
+#         w, h = image.size   # PIL返回的是(width, height)
+
+#         # 裁成不超过原图、且能被128整除的最大尺寸
+#         crop_w = w - (w % 128)
+#         crop_h = h - (h % 128)
+
+#         # 防止极端情况下出现0
+#         if crop_w == 0:
+#             crop_w = w
+#         if crop_h == 0:
+#             crop_h = h
+
+#         transform = transforms.Compose([
+#             transforms.CenterCrop((crop_h, crop_w)),  # 注意这里是(h, w)
+#             transforms.ToTensor(),
+#         ])
+
+#         img = transform(image)
+#         return img, name
+
+#     def __len__(self):
+#         return len(self.imgs)
+
+### 2026/4/21 wyj: 小块送入测试
 class Datasets(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, img_size=128):
         self.data_dir = data_dir
+        self.img_size = img_size
         self.imgs = []
         self.imgs += glob(os.path.join(data_dir, "*.jpg"))
         self.imgs += glob(os.path.join(data_dir, "*.png"))
@@ -71,30 +110,28 @@ class Datasets(Dataset):
     def __getitem__(self, item):
         image_path = self.imgs[item]
         name = os.path.splitext(os.path.basename(image_path))[0]
-
         image = Image.open(image_path).convert("RGB")
-        w, h = image.size   # PIL返回的是(width, height)
 
-        # 裁成不超过原图、且能被128整除的最大尺寸
-        crop_w = w - (w % 128)
-        crop_h = h - (h % 128)
-
-        # 防止极端情况下出现0
-        if crop_w == 0:
-            crop_w = w
-        if crop_h == 0:
-            crop_h = h
-
-        transform = transforms.Compose([
-            transforms.CenterCrop((crop_h, crop_w)),  # 注意这里是(h, w)
-            transforms.ToTensor(),
-        ])
+        # 如果原图比128小，先放大到128×128，避免CenterCrop报错
+        w, h = image.size
+        if w < self.img_size or h < self.img_size:
+            transform = transforms.Compose([
+                transforms.Resize((self.img_size, self.img_size)),
+                transforms.ToTensor(),
+            ])
+        else:
+            transform = transforms.Compose([
+                transforms.CenterCrop((self.img_size, self.img_size)),
+                transforms.ToTensor(),
+            ])
 
         img = transform(image)
         return img, name
 
     def __len__(self):
         return len(self.imgs)
+
+
 
 
 class Datasets_train(Dataset):
@@ -183,7 +220,10 @@ def get_loader(config):
             transform=transform_train,
         )
         # 整图测试：不再用ImageFolder+CenterCrop(128,128)
-        test_dataset = Datasets(config.DATA.test_data_dir)
+        #test_dataset = Datasets(config.DATA.test_data_dir)
+        ### 2026/4/21 wyj: 改成img_size * img_size 送入测试
+        test_dataset = Datasets(config.DATA.test_data_dir, img_size=config.DATA.IMG_SIZE)
+
     elif config.DATA.DATASET == "DIV2K":
         transform_train = transforms.Compose(
             [
