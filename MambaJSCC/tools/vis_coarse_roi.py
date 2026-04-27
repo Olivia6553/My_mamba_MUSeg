@@ -25,18 +25,19 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMAGE_DIR = "/home/wengyijia/datasets/MUSeg/test_official/Image_1024x896"
 LABEL_DIR = "/home/wengyijia/datasets/MUSeg/test_official/Label_1024x896"
 
-CKPT_PATH = "/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi.pth"
+#CKPT_PATH = "/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi.pth"
+CKPT_PATH = "/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth"
 
-SAVE_DIR = "/home/wengyijia/mambajscc/MambaJSCC/vis_results/coarse_roi_samples"
+SAVE_DIR = "/home/wengyijia/mambajscc/MambaJSCC/vis_results/2_finetune_coarse_roi_samples"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 THRESHOLD = 0.5
-SEED = 1024
+SEED = 2048
 
 # 分层抽样数量
-NUM_LOW = 3
-NUM_MID = 3
-NUM_HIGH = 3
+NUM_LOW = 5
+NUM_MID = 5
+NUM_HIGH = 5
 
 # 和训练时保持一致
 ROI_CLASS_IDS =[1,4,5,6,7,8,9,10,11,12,13,14,15]

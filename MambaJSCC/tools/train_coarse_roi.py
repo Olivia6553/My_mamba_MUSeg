@@ -14,7 +14,7 @@ from models.coarse_roi_net import LightCoarseROINet
 #from data.coarse_roi_dataset import CoarseROIDataset
 ### 2026/4/24 wyj:改像素级训练
 from data.coarse_roi_dataset import CoarseROIPixelDataset
-ROI_CLASS_IDS = [1,4,5,6,7,8,9,10,11,12,13,14,15]
+ROI_CLASS_IDS = [1,4,5,6,7,8,9,10,11,12,13,14,15] #只有background、cable、tube是非ROI
 
 
 # def calc_pos_weight(dataset):
