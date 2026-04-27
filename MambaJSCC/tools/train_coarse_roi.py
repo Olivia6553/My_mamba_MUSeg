@@ -1,3 +1,5 @@
+### 像素级标签来源，块级监督训练，块级输出，块级评估
+
 import sys
 from pathlib import Path
 
@@ -298,6 +300,15 @@ def main():
     save_dir = ROOT / "checkpoints" / "coarse_roi"
     save_dir.mkdir(parents=True, exist_ok=True)
 
+### 2026/4/27 ：wyj 改变学习率
+    # ===== fine-tune 配置 =====
+    resume_ckpt = ROOT / "checkpoints" / "coarse_roi" / "best_coarse_roi.pth"
+    resume_finetune = True     # True: 从 best_coarse_roi.pth 继续训
+    finetune_lr = 1e-4         # 比原来的 3e-4 更小
+    finetune_epochs = 15       # 先继续训 15 轮试试
+
+
+
     # ===== 数据集 =====
     # train_set = CoarseROIDataset(train_image_dir, train_grid_dir)
     # val_set = CoarseROIDataset(val_image_dir, val_grid_dir)
@@ -313,6 +324,14 @@ def main():
 
     # ===== 模型 =====
     model = LightCoarseROINet(base_ch=16).to(device)
+
+    if resume_finetune and resume_ckpt.exists():
+        state_dict = torch.load(resume_ckpt, map_location=device)
+        model.load_state_dict(state_dict)
+        print(f"[继续训练] 已加载权重: {resume_ckpt}")
+    else:
+        print("[从头训练] 未加载旧权重")
+
 
     # ===== 类别不平衡处理 =====
     # pos_weight_value = calc_pos_weight(train_set)
@@ -336,7 +355,7 @@ def main():
 
 
     # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=finetune_lr, weight_decay=1e-4)
 
     # ===== 训练 =====
     best_f1 = -1.0
@@ -388,7 +407,8 @@ def main():
 
         if metrics["f1"] > best_f1:
             best_f1 = metrics["f1"]
-            save_path = save_dir / "best_coarse_roi.pth"
+            #save_path = save_dir / "best_coarse_roi.pth"  #正常训练保存路径
+            save_path = save_dir / "best_coarse_roi_finetune.pth" #优化器学习率调小后的训练参数保存路径（避免覆盖正常训练保存路径）
             torch.save(model.state_dict(), save_path)
             print(f"[保存最优模型] {save_path}")
 
