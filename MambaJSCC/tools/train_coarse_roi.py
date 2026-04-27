@@ -12,7 +12,7 @@ from models.coarse_roi_net import LightCoarseROINet
 #from data.coarse_roi_dataset import CoarseROIDataset
 ### 2026/4/24 wyj:改像素级训练
 from data.coarse_roi_dataset import CoarseROIPixelDataset
-ROI_CLASS_IDS = [4, 11, 15]
+ROI_CLASS_IDS = [1,4,5,6,7,8,9,10,11,12,13,14,15]
 
 
 # def calc_pos_weight(dataset):
@@ -284,15 +284,15 @@ def train_one_epoch(model, loader, optimizer, criterion, device, roi_class_ids, 
 
 def main():
     # ===== 数据路径 =====
-    train_image_dir = "/home/wengyijia/datasets/MUSeg/train/Image_1024x896"
-    train_grid_dir  = "/home/wengyijia/datasets/MUSeg/train/BlockROI_binary_grid_7x8"
+    train_image_dir = "/home/wengyijia/datasets/MUSeg/train_official/Image_1024x896"
+    #train_grid_dir  = "/home/wengyijia/datasets/MUSeg/train/BlockROI_binary_grid_7x8"
 
-    val_image_dir = "/home/wengyijia/datasets/MUSeg/val/Image_1024x896"
-    val_grid_dir  = "/home/wengyijia/datasets/MUSeg/val/BlockROI_binary_grid_7x8"
+    val_image_dir = "/home/wengyijia/datasets/MUSeg/test_official/Image_1024x896"
+    #val_grid_dir  = "/home/wengyijia/datasets/MUSeg/val/BlockROI_binary_grid_7x8"
 
 ### 2026/4/24：wyj 像素级分割数据
-    train_label_dir = "/home/wengyijia/datasets/MUSeg/train/Label_1024x896"
-    val_label_dir   = "/home/wengyijia/datasets/MUSeg/val/Label_1024x896"
+    train_label_dir = "/home/wengyijia/datasets/MUSeg/train_official/Label_1024x896"
+    val_label_dir   = "/home/wengyijia/datasets/MUSeg/test_official/Label_1024x896"
 
     # ===== 保存路径 =====
     save_dir = ROOT / "checkpoints" / "coarse_roi"
