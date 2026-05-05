@@ -9,7 +9,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 class args:
-    branch = "roi"   # "roi" or "bg"
+    branch = "bg"   # "roi" or "bg"
     mode = "eval"  # "train" or "eval"
 
     project_path = "/home/wengyijia/mambajscc/MambaJSCC/"
