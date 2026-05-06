@@ -3,4 +3,4 @@ MambaJSCC/vis_results/
 checkpoints/
 __pycache__/
 *.pyc
-*.pyo
+*.pyooutputs/
