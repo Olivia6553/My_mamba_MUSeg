@@ -4,3 +4,7 @@ checkpoints/
 __pycache__/
 *.pyc
 *.pyooutputs/
+MambaJSCC/outputs/roi_dual_full/visual/01-01-01-0590-240523104503-04-99_compare_input_recon_diff.png
+MambaJSCC/outputs/roi_dual_full/visual/01-01-01-0590-240523104503-04-99_compare_input_recon_diff.png
+outputs/roi_dual_full/visual/
+MambaJSCC/outputs/roi_dual_full/visual/
