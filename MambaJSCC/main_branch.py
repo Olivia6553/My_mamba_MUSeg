@@ -9,10 +9,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 class args:
-    branch = "roi"   # "roi" or "bg"
+    branch = "bg"   # "roi" or "bg"
     mode = "eval"  # "train" or "eval"
 
-    project_path = "/home/wengyijia/mambajscc/MambaJSCC/"
+
+    project_path = "/root/autodl-tmp/mambajscc/MambaJSCC/"
 
     # ROI 分支用原配置，BG 分支用瘦身配置
     if branch == "roi":

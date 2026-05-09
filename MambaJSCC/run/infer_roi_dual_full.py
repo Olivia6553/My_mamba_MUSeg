@@ -1,3 +1,13 @@
+from utils.complexity import (
+    count_params,
+    to_million,
+    to_giga,
+    profile_roi_head_macs,
+    profile_branch_macs_per_block,
+    timer_start,
+    timer_end_ms,
+)
+
 import os
 import csv
 from pathlib import Path
@@ -215,9 +225,9 @@ def build_branch_ckpt_name(config, branch_type):
 def infer_roi_dual_full(
     roi_config,
     bg_config,
-    image_dir="/home/wengyijia/datasets/MUSeg/test_official/Image_1024x896",
-    coarse_roi_ckpt="/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth",
-    output_dir="/home/wengyijia/mambajscc/MambaJSCC/outputs/roi_dual_full",
+    image_dir="/root/autodl-tmp/datasets/MUSeg/test_official/Image_1024x896",
+    coarse_roi_ckpt="/root/autodl-tmp/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth",
+    output_dir="/root/autodl-tmp/mambajscc/MambaJSCC/outputs/roi_dual_full",
     threshold=0.5,
     image_start=0,
     max_images=20,
@@ -238,7 +248,7 @@ def infer_roi_dual_full(
 
     coarse_roi_ckpt = Path(coarse_roi_ckpt)
     if not coarse_roi_ckpt.exists():
-        fallback = Path("/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi.pth")
+        fallback = Path("/root/autodl-tmp/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi.pth")
         if fallback.exists():
             coarse_roi_ckpt = fallback
         else:
@@ -270,6 +280,59 @@ def infer_roi_dual_full(
     bg_encoder.eval()
     bg_decoder.eval()
     bg_channel = Channel(bg_config)
+
+
+    ####
+
+    # ===== 复杂度静态统计：Params + MACs =====
+    roi_head_params = count_params(roi_head)
+    roi_branch_params = count_params(roi_encoder) + count_params(roi_decoder)
+    bg_branch_params = count_params(bg_encoder) + count_params(bg_decoder)
+
+    total_stored_params = roi_head_params + roi_branch_params + bg_branch_params
+
+    SNR_roi_profile = roi_config.CHANNEL.SNR[0]
+    SNR_bg_profile = bg_config.CHANNEL.SNR[0]
+
+    print("\n========== Static Complexity ==========")
+    print(f"ROI head params      = {to_million(roi_head_params):.4f} M")
+    print(f"ROI branch params    = {to_million(roi_branch_params):.4f} M")
+    print(f"BG branch params     = {to_million(bg_branch_params):.4f} M")
+    print(f"Total stored params  = {to_million(total_stored_params):.4f} M")
+
+    roi_head_macs = profile_roi_head_macs(
+        roi_head=roi_head,
+        device=device,
+        h=896,
+        w=1024,
+    )
+
+    roi_branch_macs_dict = profile_branch_macs_per_block(
+        encoder=roi_encoder,
+        decoder=roi_decoder,
+        channel=roi_channel,
+        config=roi_config,
+        device=device,
+        snr=SNR_roi_profile,
+        block_h=128,
+        block_w=128,
+    )
+
+    bg_branch_macs_dict = profile_branch_macs_per_block(
+        encoder=bg_encoder,
+        decoder=bg_decoder,
+        channel=bg_channel,
+        config=bg_config,
+        device=device,
+        snr=SNR_bg_profile,
+        block_h=128,
+        block_w=128,
+    )
+
+    print(f"ROI head MACs        = {to_giga(roi_head_macs):.4f} G")
+    print(f"ROI branch MACs/block= {to_giga(roi_branch_macs_dict['branch_macs']):.4f} G")
+    print(f"BG branch MACs/block = {to_giga(bg_branch_macs_dict['branch_macs']):.4f} G")
+
 
     # image_paths = sorted([
     #     p for p in image_dir.iterdir()
@@ -304,21 +367,57 @@ def infer_roi_dual_full(
         img_tensor_cpu, img_pil = load_image_as_tensor(img_path)
         img_tensor = img_tensor_cpu.to(device)  # [1,3,896,1024]
 
+        total_timer = timer_start()
+
         _, _, H, W = img_tensor.shape
         assert H == 896 and W == 1024, f"当前脚本假设输入是 896x1024，但得到 {H}x{W}"
 
         # ===== 4. ROI 头预测 7×8 mask =====
+        # logits = roi_head(img_tensor)
+        # probs = torch.sigmoid(logits)[0, 0]  # [7,8]
+        # grid = (probs >= threshold).float().cpu().numpy().astype(np.uint8)  # [7,8]
+        
+        # ===== ROI head 推理计时 =====
+        t0 = timer_start()
         logits = roi_head(img_tensor)
-        probs = torch.sigmoid(logits)[0, 0]  # [7,8]
-        grid = (probs >= threshold).float().cpu().numpy().astype(np.uint8)  # [7,8]
+        roi_head_time_ms = timer_end_ms(t0)
+
+        probs = torch.sigmoid(logits)[0, 0]
+        grid = (probs >= threshold).float().cpu().numpy().astype(np.uint8)
+
 
         # ===== 5. 切 56 个块并按 grid 路由 =====
+        # blocks, positions = split_into_blocks(img_tensor)
+
+        # roi_blocks = []
+        # roi_positions = []
+        # bg_blocks = []
+        # bg_positions = []
+
+        # ===== 切块 + 路由计时 =====
+        t0 = timer_start()
+
         blocks, positions = split_into_blocks(img_tensor)
 
         roi_blocks = []
         roi_positions = []
         bg_blocks = []
         bg_positions = []
+
+        for block, (r, c) in zip(blocks, positions):
+            if grid[r, c] == 1:
+                roi_blocks.append(block)
+                roi_positions.append((r, c))
+            else:
+                bg_blocks.append(block)
+                bg_positions.append((r, c))
+
+        roi_blocks_tensor = torch.stack(roi_blocks, dim=0).to(device) if len(roi_blocks) > 0 else None
+        bg_blocks_tensor = torch.stack(bg_blocks, dim=0).to(device) if len(bg_blocks) > 0 else None
+
+        routing_time_ms = timer_end_ms(t0)
+
+
 
         for block, (r, c) in zip(blocks, positions):
             if grid[r, c] == 1:
@@ -338,8 +437,28 @@ def infer_roi_dual_full(
         total_feature_numel = 0
 
         # ===== 6. ROI 块走 ROI 分支 =====
+        # roi_feature_numel = 0
+        # if roi_blocks_tensor is not None:
+        #     roi_recon_blocks, roi_feature_numel = run_branch_codec(
+        #         roi_blocks_tensor,
+        #         roi_encoder,
+        #         roi_decoder,
+        #         roi_channel,
+        #         roi_config,
+        #         SNR_roi,
+        #     )
+        #     total_feature_numel += roi_feature_numel
+
+        #     for i, pos in enumerate(roi_positions):
+        #         recon_dict[pos] = roi_recon_blocks[i]
+
+
         roi_feature_numel = 0
+        roi_branch_time_ms = 0.0
+
         if roi_blocks_tensor is not None:
+            t0 = timer_start()
+
             roi_recon_blocks, roi_feature_numel = run_branch_codec(
                 roi_blocks_tensor,
                 roi_encoder,
@@ -348,14 +467,37 @@ def infer_roi_dual_full(
                 roi_config,
                 SNR_roi,
             )
+
+            roi_branch_time_ms = timer_end_ms(t0)
+
             total_feature_numel += roi_feature_numel
 
             for i, pos in enumerate(roi_positions):
                 recon_dict[pos] = roi_recon_blocks[i]
 
+
         # ===== 7. BG 块走 BG 分支 =====
+        # bg_feature_numel = 0
+        # if bg_blocks_tensor is not None:
+        #     bg_recon_blocks, bg_feature_numel = run_branch_codec(
+        #         bg_blocks_tensor,
+        #         bg_encoder,
+        #         bg_decoder,
+        #         bg_channel,
+        #         bg_config,
+        #         SNR_bg,
+        #     )
+        #     total_feature_numel += bg_feature_numel
+
+        #     for i, pos in enumerate(bg_positions):
+        #         recon_dict[pos] = bg_recon_blocks[i]
+
         bg_feature_numel = 0
+        bg_branch_time_ms = 0.0
+
         if bg_blocks_tensor is not None:
+            t0 = timer_start()
+
             bg_recon_blocks, bg_feature_numel = run_branch_codec(
                 bg_blocks_tensor,
                 bg_encoder,
@@ -364,13 +506,25 @@ def infer_roi_dual_full(
                 bg_config,
                 SNR_bg,
             )
+
+            bg_branch_time_ms = timer_end_ms(t0)
+
             total_feature_numel += bg_feature_numel
 
             for i, pos in enumerate(bg_positions):
                 recon_dict[pos] = bg_recon_blocks[i]
 
+
+
         # ===== 8. 拼回整图 =====
+        # recon_full = merge_blocks(recon_dict, H=H, W=W, device=device)
+            # ===== 拼接计时 =====
+        t0 = timer_start()
         recon_full = merge_blocks(recon_dict, H=H, W=W, device=device)
+        stitching_time_ms = timer_end_ms(t0)
+
+        total_infer_time_ms = timer_end_ms(total_timer)
+
 
         # ===== 9. 指标计算 =====
         full_psnr = calc_psnr(img_tensor, recon_full)
@@ -388,6 +542,25 @@ def infer_roi_dual_full(
 
         roi_count = int(grid.sum())
         bg_count = int(56 - roi_count)
+
+        # ===== 整图有效 MACs =====
+        effective_macs = (
+            roi_head_macs
+            + roi_count * roi_branch_macs_dict["branch_macs"]
+            + bg_count * bg_branch_macs_dict["branch_macs"]
+        )
+
+        # ===== 每张图实际激活的参数量 =====
+        # 注意：stored params 表示模型总共存了多少参数；
+        # activated params 表示这张图实际用到了哪些模块。
+        activated_params = roi_head_params
+
+        if roi_count > 0:
+            activated_params += roi_branch_params
+
+        if bg_count > 0:
+            activated_params += bg_branch_params
+
 
         # ===== 10. 保存图像 =====
         stem = img_path.stem
@@ -427,6 +600,24 @@ def infer_roi_dual_full(
             "threshold": threshold,
             "SNR_roi": SNR_roi,
             "SNR_bg": SNR_bg,
+
+            "roi_head_params_M": to_million(roi_head_params),
+            "roi_branch_params_M": to_million(roi_branch_params),
+            "bg_branch_params_M": to_million(bg_branch_params),
+            "total_stored_params_M": to_million(total_stored_params),
+            "activated_params_M": to_million(activated_params),
+
+            "roi_head_macs_G": to_giga(roi_head_macs),
+            "roi_branch_macs_per_block_G": to_giga(roi_branch_macs_dict["branch_macs"]),
+            "bg_branch_macs_per_block_G": to_giga(bg_branch_macs_dict["branch_macs"]),
+            "effective_macs_G": to_giga(effective_macs),
+
+            "roi_head_time_ms": roi_head_time_ms,
+            "routing_time_ms": routing_time_ms,
+            "roi_branch_time_ms": roi_branch_time_ms,
+            "bg_branch_time_ms": bg_branch_time_ms,
+            "stitching_time_ms": stitching_time_ms,
+            "total_infer_time_ms": total_infer_time_ms,
         })
 
     # ===== 11. 保存 CSV =====
@@ -448,6 +639,24 @@ def infer_roi_dual_full(
                 "threshold",
                 "SNR_roi",
                 "SNR_bg",
+
+                "roi_head_params_M",
+                "roi_branch_params_M",
+                "bg_branch_params_M",
+                "total_stored_params_M",
+                "activated_params_M",
+
+                "roi_head_macs_G",
+                "roi_branch_macs_per_block_G",
+                "bg_branch_macs_per_block_G",
+                "effective_macs_G",
+
+                "roi_head_time_ms",
+                "routing_time_ms",
+                "roi_branch_time_ms",
+                "bg_branch_time_ms",
+                "stitching_time_ms",
+                "total_infer_time_ms",
             ]
         )
         writer.writeheader()
@@ -468,3 +677,16 @@ def infer_roi_dual_full(
         print(f"avg BG blocks = {avg_bg_blocks:.2f} / 56")
         print(f"metrics saved to: {csv_path}")
         print(f"visual results saved to: {visual_dir}")
+
+        avg_effective_macs = np.mean([r["effective_macs_G"] for r in rows])
+        avg_total_time = np.mean([r["total_infer_time_ms"] for r in rows])
+        avg_roi_head_time = np.mean([r["roi_head_time_ms"] for r in rows])
+        avg_roi_branch_time = np.mean([r["roi_branch_time_ms"] for r in rows])
+        avg_bg_branch_time = np.mean([r["bg_branch_time_ms"] for r in rows])
+
+        print(f"total stored params = {to_million(total_stored_params):.4f} M")
+        print(f"avg effective MACs = {avg_effective_macs:.4f} G")
+        print(f"avg total inference delay = {avg_total_time:.4f} ms")
+        print(f"avg ROI head time = {avg_roi_head_time:.4f} ms")
+        print(f"avg ROI branch time = {avg_roi_branch_time:.4f} ms")
+        print(f"avg BG branch time = {avg_bg_branch_time:.4f} ms")

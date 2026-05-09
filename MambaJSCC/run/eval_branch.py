@@ -102,8 +102,8 @@ def save_visual_result(input_image, recon_image, meta, save_dir, global_start_id
 
 @torch.no_grad()
 def eval_branch(config, branch_type="roi"):
-    image_dir = "/home/wengyijia/datasets/MUSeg/test_official/Image_1024x896"
-    grid_dir = "/home/wengyijia/datasets/MUSeg/test_official/BlockROI_binary_grid_7x8"
+    image_dir = "/root/autodl-tmp/datasets/MUSeg/test_official/Image_1024x896"
+    grid_dir = "/root/autodl-tmp/datasets/MUSeg/test_official/BlockROI_binary_grid_7x8"
 
     dataset = CenterBlockBranchDataset(
         image_dir=image_dir,
@@ -154,7 +154,7 @@ def eval_branch(config, branch_type="roi"):
     matrix = eval_matrix(config)
 
     # ===== 可视化输出目录 =====
-    output_root = Path("/home/wengyijia/mambajscc/MambaJSCC/outputs/branch_eval")
+    output_root = Path("/root/autodl-tmp/mambajscc/MambaJSCC/outputs/branch_eval")
     vis_dir = output_root / branch_type / "visual"
     output_root.mkdir(parents=True, exist_ok=True)
     vis_dir.mkdir(parents=True, exist_ok=True)

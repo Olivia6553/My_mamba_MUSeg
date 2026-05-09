@@ -286,15 +286,15 @@ def train_one_epoch(model, loader, optimizer, criterion, device, roi_class_ids, 
 
 def main():
     # ===== 数据路径 =====
-    train_image_dir = "/home/wengyijia/datasets/MUSeg/train_official/Image_1024x896"
+    train_image_dir = "/root/autodl-tmp/datasets/MUSeg/train_official/Image_1024x896"
     #train_grid_dir  = "/home/wengyijia/datasets/MUSeg/train/BlockROI_binary_grid_7x8"
 
-    val_image_dir = "/home/wengyijia/datasets/MUSeg/test_official/Image_1024x896"
+    val_image_dir = "/root/autodl-tmp/datasets/MUSeg/test_official/Image_1024x896"
     #val_grid_dir  = "/home/wengyijia/datasets/MUSeg/val/BlockROI_binary_grid_7x8"
 
 ### 2026/4/24：wyj 像素级分割数据
-    train_label_dir = "/home/wengyijia/datasets/MUSeg/train_official/Label_1024x896"
-    val_label_dir   = "/home/wengyijia/datasets/MUSeg/test_official/Label_1024x896"
+    train_label_dir = "/root/autodl-tmp/datasets/MUSeg/train_official/Label_1024x896"
+    val_label_dir   = "/root/autodl-tmp/datasets/MUSeg/test_official/Label_1024x896"
 
     # ===== 保存路径 =====
     save_dir = ROOT / "checkpoints" / "coarse_roi"

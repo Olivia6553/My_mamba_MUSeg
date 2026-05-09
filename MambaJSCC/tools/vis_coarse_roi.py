@@ -22,13 +22,13 @@ from data.coarse_roi_dataset import CoarseROIPixelDataset
 # =========================================================
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-IMAGE_DIR = "/home/wengyijia/datasets/MUSeg/test_official/Image_1024x896"
-LABEL_DIR = "/home/wengyijia/datasets/MUSeg/test_official/Label_1024x896"
+IMAGE_DIR = "/root/autodl-tmp/datasets/MUSeg/test_official/Image_1024x896"
+LABEL_DIR = "/root/autodl-tmp/datasets/MUSeg/test_official/Label_1024x896"
 
-#CKPT_PATH = "/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi.pth"
-CKPT_PATH = "/home/wengyijia/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth"
+#CKPT_PATH = "/root/autodl-tmp/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi.pth"
+CKPT_PATH = "/root/autodl-tmp/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth"
 
-SAVE_DIR = "/home/wengyijia/mambajscc/MambaJSCC/vis_results/2_finetune_coarse_roi_samples"
+SAVE_DIR = "/root/autodl-tmp/mambajscc/MambaJSCC/vis_results/2_finetune_coarse_roi_samples"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 THRESHOLD = 0.5

@@ -14,8 +14,8 @@ from utils.utils import seed_torch
 
 def train_branch(config, branch_type="roi"):
     # ===== 数据路径 =====
-    image_dir = "/home/wengyijia/datasets/MUSeg/train_official/Image_1024x896"
-    grid_dir  = "/home/wengyijia/datasets/MUSeg/train_official/BlockROI_binary_grid_7x8"
+    image_dir = "/root/autodl-tmp/datasets/MUSeg/train_official/Image_1024x896"
+    grid_dir  = "/root/autodl-tmp/datasets/MUSeg/train_official/BlockROI_binary_grid_7x8"
 
     dataset = CenterBlockBranchDataset(
         image_dir=image_dir,
@@ -38,6 +38,24 @@ def train_branch(config, branch_type="roi"):
     decoder = Mamba_decoder(config).cuda()
     channel = Channel(config)
 
+    def count_params(model):
+        return sum(p.numel() for p in model.parameters())
+    
+    encoder_params = count_params(encoder)
+    decoder_params = count_params(decoder)
+    total_params = encoder_params + decoder_params
+    trainable_params = sum(
+        p.numel()
+        for p in list(encoder.parameters()) + list(decoder.parameters())
+        if p.requires_grad
+    )
+    
+    print(f"Encoder params: {encoder_params / 1e6:.4f} M")
+    print(f"Decoder params: {decoder_params / 1e6:.4f} M")
+    print(f"Total params: {total_params / 1e6:.4f} M")
+    print(f"Trainable params: {trainable_params / 1e6:.4f} M")
+
+    
     optimizer_encoder = optim.AdamW(encoder.parameters(), lr=config.TRAIN.BASE_LR, weight_decay=1e-4)
     optimizer_decoder = optim.AdamW(decoder.parameters(), lr=config.TRAIN.BASE_LR, weight_decay=1e-4)
 

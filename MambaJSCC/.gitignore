@@ -8,3 +8,29 @@ __pycache__/
 *.egg-info
 dist/
 *.o
+
+# Jupyter
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# experiment outputs
+outputs/
+vis_results_full/
+runs/
+checkpoints/
+
+# model weights
+*.pth
+*.pt
+*.ckpt
+*.pkl
+
+# cache
+__pycache__/
+*.pyc
+
+# env
+.venv/
+venv/
+.env
+.vscode/

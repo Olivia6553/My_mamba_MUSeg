@@ -70,7 +70,7 @@ class args:
     '''
     ##config_name='DIV2K'
     config_name='MUSeg'
-    project_path='/home/wengyijia/mambajscc/MambaJSCC/'  ### change here to your own path
+    project_path='/root/autodl-tmp/mambajscc/MambaJSCC/'  ### change here to your own path
     model_config_path = project_path + 'configs/vssm/vssm_tiny_{}.yaml'.format(config_name)
     train_config_path= project_path + 'configs/train/vssm_tiny_{}.yaml'.format(config_name)
     mode='eval'
