@@ -16,6 +16,7 @@ import numpy as np
 from PIL import Image
 
 import torch
+import torch.nn.functional as F
 import torchvision.utils as vutils
 from tqdm import tqdm
 
@@ -23,6 +24,7 @@ from models.coarse_roi_net import LightCoarseROINet
 from models.channel import Channel
 from utils.distortion import *
 from utils.utils import *
+
 
 
 def load_image_as_tensor(img_path):
@@ -170,6 +172,21 @@ def merge_blocks(block_dict, H=896, W=1024, block_h=128, block_w=128, device="cu
 
     return recon
 
+def resize_blocks(blocks_tensor, size, mode="bicubic"):
+    """
+    blocks_tensor: [N, 3, H, W]
+    return: [N, 3, size, size]
+    """
+    if blocks_tensor is None or blocks_tensor.shape[0] == 0:
+        return None
+
+    return F.interpolate(
+        blocks_tensor,
+        size=(size, size),
+        mode=mode,
+        align_corners=False if mode in ["bilinear", "bicubic"] else None,
+    )
+
 
 @torch.no_grad()
 def run_branch_codec(blocks_tensor, encoder, decoder, channel, config, SNR):
@@ -222,6 +239,16 @@ def build_branch_ckpt_name(config, branch_type):
 
 
 @torch.no_grad()
+# def infer_roi_dual_full(
+#     roi_config,
+#     bg_config,
+#     image_dir="/root/autodl-tmp/datasets/MUSeg/test_official/Image_1024x896",
+#     coarse_roi_ckpt="/root/autodl-tmp/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth",
+#     output_dir="/root/autodl-tmp/mambajscc/MambaJSCC/outputs/roi_dual_full",
+#     threshold=0.5,
+#     image_start=0,
+#     max_images=20,
+# ):
 def infer_roi_dual_full(
     roi_config,
     bg_config,
@@ -231,6 +258,7 @@ def infer_roi_dual_full(
     threshold=0.5,
     image_start=0,
     max_images=20,
+    bg_low_size=64,
 ):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -258,7 +286,7 @@ def infer_roi_dual_full(
     roi_head.eval()
 
     print(f"[Load] coarse ROI ckpt = {coarse_roi_ckpt}")
-
+    
     # ===== 2. 加载 ROI 分支 =====
     roi_encoder_name, roi_decoder_name = build_branch_ckpt_name(roi_config, "roi")
     print(f"[Load] ROI encoder = {roi_encoder_name}")
@@ -318,6 +346,16 @@ def infer_roi_dual_full(
         block_w=128,
     )
 
+    # bg_branch_macs_dict = profile_branch_macs_per_block(
+    #     encoder=bg_encoder,
+    #     decoder=bg_decoder,
+    #     channel=bg_channel,
+    #     config=bg_config,
+    #     device=device,
+    #     snr=SNR_bg_profile,
+    #     block_h=128,
+    #     block_w=128,
+    # )
     bg_branch_macs_dict = profile_branch_macs_per_block(
         encoder=bg_encoder,
         decoder=bg_decoder,
@@ -325,8 +363,8 @@ def infer_roi_dual_full(
         config=bg_config,
         device=device,
         snr=SNR_bg_profile,
-        block_h=128,
-        block_w=128,
+        block_h=bg_low_size,
+        block_w=bg_low_size,
     )
 
     print(f"ROI head MACs        = {to_giga(roi_head_macs):.4f} G")
@@ -360,7 +398,8 @@ def infer_roi_dual_full(
     print(f"[Infer] num_images = {len(image_paths)}")
     print(f"[Infer] output_dir = {output_dir}")
     print(f"[Infer] threshold = {threshold}")
-
+    print(f"[Infer] BG low size = {bg_low_size}")
+    
     rows = []
 
     for img_path in tqdm(image_paths):
@@ -419,16 +458,16 @@ def infer_roi_dual_full(
 
 
 
-        for block, (r, c) in zip(blocks, positions):
-            if grid[r, c] == 1:
-                roi_blocks.append(block)
-                roi_positions.append((r, c))
-            else:
-                bg_blocks.append(block)
-                bg_positions.append((r, c))
+        # for block, (r, c) in zip(blocks, positions):
+        #     if grid[r, c] == 1:
+        #         roi_blocks.append(block)
+        #         roi_positions.append((r, c))
+        #     else:
+        #         bg_blocks.append(block)
+        #         bg_positions.append((r, c))
 
-        roi_blocks_tensor = torch.stack(roi_blocks, dim=0).to(device) if len(roi_blocks) > 0 else None
-        bg_blocks_tensor = torch.stack(bg_blocks, dim=0).to(device) if len(bg_blocks) > 0 else None
+        # roi_blocks_tensor = torch.stack(roi_blocks, dim=0).to(device) if len(roi_blocks) > 0 else None
+        # bg_blocks_tensor = torch.stack(bg_blocks, dim=0).to(device) if len(bg_blocks) > 0 else None
 
         SNR_roi = roi_config.CHANNEL.SNR[0]
         SNR_bg = bg_config.CHANNEL.SNR[0]
@@ -492,14 +531,41 @@ def infer_roi_dual_full(
         #     for i, pos in enumerate(bg_positions):
         #         recon_dict[pos] = bg_recon_blocks[i]
 
+        # bg_feature_numel = 0
+        # bg_branch_time_ms = 0.0
+
+        # if bg_blocks_tensor is not None:
+        #     t0 = timer_start()
+
+        #     bg_recon_blocks, bg_feature_numel = run_branch_codec(
+        #         bg_blocks_tensor,
+        #         bg_encoder,
+        #         bg_decoder,
+        #         bg_channel,
+        #         bg_config,
+        #         SNR_bg,
+        #     )
+
+        #     bg_branch_time_ms = timer_end_ms(t0)
+
+        #     total_feature_numel += bg_feature_numel
+
+        #     for i, pos in enumerate(bg_positions):
+        #         recon_dict[pos] = bg_recon_blocks[i]
+
+        # ===== 7: BG 块走 BG 分支（低分辨率预压缩） =====
         bg_feature_numel = 0
         bg_branch_time_ms = 0.0
 
         if bg_blocks_tensor is not None:
             t0 = timer_start()
 
-            bg_recon_blocks, bg_feature_numel = run_branch_codec(
-                bg_blocks_tensor,
+            # 1) BG 块先从 128×128 降采样到 bg_low_size×bg_low_size
+            bg_blocks_low = resize_blocks(bg_blocks_tensor, size=bg_low_size, mode="bicubic")
+
+            # 2) 低分辨率 BG 块进入 BG MambaJSCC 分支
+            bg_recon_low, bg_feature_numel = run_branch_codec(
+                bg_blocks_low,
                 bg_encoder,
                 bg_decoder,
                 bg_channel,
@@ -507,13 +573,14 @@ def infer_roi_dual_full(
                 SNR_bg,
             )
 
-            bg_branch_time_ms = timer_end_ms(t0)
+            # 3) BG 重建结果再上采样回 128×128，保证可以拼回整图
+            bg_recon_blocks = resize_blocks(bg_recon_low, size=128, mode="bicubic")
 
+            bg_branch_time_ms = timer_end_ms(t0)
             total_feature_numel += bg_feature_numel
 
             for i, pos in enumerate(bg_positions):
                 recon_dict[pos] = bg_recon_blocks[i]
-
 
 
         # ===== 8. 拼回整图 =====
@@ -598,6 +665,7 @@ def infer_roi_dual_full(
             "bg_feature_numel": bg_feature_numel,
             "total_feature_numel": total_feature_numel,
             "threshold": threshold,
+            "bg_low_size": bg_low_size,
             "SNR_roi": SNR_roi,
             "SNR_bg": SNR_bg,
 
@@ -637,6 +705,7 @@ def infer_roi_dual_full(
                 "bg_feature_numel",
                 "total_feature_numel",
                 "threshold",
+                "bg_low_size",
                 "SNR_roi",
                 "SNR_bg",
 

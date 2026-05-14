@@ -31,10 +31,12 @@ def main():
         bg_config=bg_config,
         image_dir="/root/autodl-tmp/datasets/MUSeg/test_official/Image_1024x896",
         coarse_roi_ckpt="/root/autodl-tmp/mambajscc/MambaJSCC/checkpoints/coarse_roi/best_coarse_roi_finetune.pth",
-        output_dir="/root/autodl-tmp/mambajscc/MambaJSCC/outputs/roi_dual_full",
+        #output_dir="/root/autodl-tmp/mambajscc/MambaJSCC/outputs/roi_dual_full",
+        output_dir="/root/autodl-tmp/mambajscc/MambaJSCC/outputs/roi_dual_full_bg64",
         threshold=0.5,
         image_start=400,
         max_images=20,
+        bg_low_size=64,
     )
 
 
