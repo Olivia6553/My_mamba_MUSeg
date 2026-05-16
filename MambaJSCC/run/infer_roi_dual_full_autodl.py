@@ -83,39 +83,6 @@ def calc_region_psnr(x, y, mask_2d):
     return 10.0 * np.log10(1.0 / mse)
 
 
-def calc_roi_block_metrics(x, y, metric_grid, cal_msssim, cal_lpips, block_h=128, block_w=128):
-    """
-    x, y: [1,3,896,1024], range [0,1]
-    metric_grid: [7,8], 0/1，用于指定 ROI 评价区域
-    return: roi_msssim, roi_lpips
-    """
-    roi_src_blocks = []
-    roi_rec_blocks = []
-
-    for r in range(metric_grid.shape[0]):
-        for c in range(metric_grid.shape[1]):
-            if int(metric_grid[r, c]) == 1:
-                y0, y1 = r * block_h, (r + 1) * block_h
-                x0, x1 = c * block_w, (c + 1) * block_w
-
-                roi_src_blocks.append(x[:, :, y0:y1, x0:x1])
-                roi_rec_blocks.append(y[:, :, y0:y1, x0:x1])
-
-    if len(roi_src_blocks) == 0:
-        return None, None
-
-    roi_src = torch.cat(roi_src_blocks, dim=0).clamp(0, 1)
-    roi_rec = torch.cat(roi_rec_blocks, dim=0).clamp(0, 1)
-
-    # 原项目 MS_SSIM 类返回的是 1 - MS-SSIM，所以这里再用 1 - loss
-    roi_msssim = 1.0 - cal_msssim(roi_rec, roi_src).mean().item()
-
-    # 按原项目 LPIPS 评估口径，直接输入 [0,1] 张量
-    roi_lpips = cal_lpips(roi_rec, roi_src).mean().item()
-
-    return roi_msssim, roi_lpips
-
-
 def grid_to_full_mask(grid, block_h=128, block_w=128):
     """
     grid: [7,8], 0/1
@@ -312,10 +279,6 @@ def infer_roi_dual_full(
         "route_mode must be one of: pred, all_roi, all_bg"
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # ===== ROI perceptual metrics =====
-    cal_msssim = MS_SSIM(data_range=1., levels=4, channel=3).to(device)
-    cal_lpips = lpips().eval().to(device)
 
     image_dir = Path(image_dir)
     output_dir = Path(output_dir)
@@ -697,16 +660,6 @@ def infer_roi_dual_full(
         roi_psnr = calc_region_psnr(img_tensor, recon_full, full_mask_roi)
         bg_psnr = calc_region_psnr(img_tensor, recon_full, full_mask_bg)
 
-        roi_msssim, roi_lpips = calc_roi_block_metrics(
-            img_tensor,
-            recon_full,
-            metric_grid,
-            cal_msssim,
-            cal_lpips,
-            block_h=128,
-            block_w=128,
-        )
-
         # 这里沿用你项目里的 CBR 定义:
         # CBR = feature.numel() / input_image.numel() / 2
         total_cbr = total_feature_numel / img_tensor.numel() / 2
@@ -791,8 +744,6 @@ def infer_roi_dual_full(
             "bg_blocks": bg_count,
             "full_psnr": full_psnr,
             "roi_psnr": roi_psnr if roi_psnr is not None else "",
-            "roi_msssim": roi_msssim,
-            "roi_lpips": roi_lpips,
             "bg_psnr": bg_psnr if bg_psnr is not None else "",
             "total_cbr": total_cbr,
             "compression_ratio_1_over_cbr": compression_ratio,
@@ -835,13 +786,9 @@ def infer_roi_dual_full(
                 "pred_bg_blocks",
                 "roi_blocks",
                 "bg_blocks",
-
                 "full_psnr",
                 "roi_psnr",
-                "roi_msssim",
-                "roi_lpips",
                 "bg_psnr",
-
                 "total_cbr",
                 "compression_ratio_1_over_cbr",
                 "roi_feature_numel",
@@ -874,38 +821,15 @@ def infer_roi_dual_full(
         writer.writeheader()
         writer.writerows(rows)
 
-    # if len(rows) > 0:
-    #     avg_full_psnr = np.mean([r["full_psnr"] for r in rows])
-    #     avg_cbr = np.mean([r["total_cbr"] for r in rows])
-    #     avg_cr = np.mean([r["compression_ratio_1_over_cbr"] for r in rows])
-    #     avg_roi_blocks = np.mean([r["roi_blocks"] for r in rows])
-    #     avg_bg_blocks = np.mean([r["bg_blocks"] for r in rows])
-
     if len(rows) > 0:
         avg_full_psnr = np.mean([r["full_psnr"] for r in rows])
-
-        roi_psnr_list = [r["roi_psnr"] for r in rows if r["roi_psnr"] != "" and r["roi_psnr"] is not None]
-        bg_psnr_list = [r["bg_psnr"] for r in rows if r["bg_psnr"] != "" and r["bg_psnr"] is not None]
-        roi_msssim_list = [r["roi_msssim"] for r in rows if r["roi_msssim"] is not None]
-        roi_lpips_list = [r["roi_lpips"] for r in rows if r["roi_lpips"] is not None]
-
-        avg_roi_psnr = np.mean(roi_psnr_list) if len(roi_psnr_list) > 0 else np.nan
-        avg_bg_psnr = np.mean(bg_psnr_list) if len(bg_psnr_list) > 0 else np.nan
-        avg_roi_msssim = np.mean(roi_msssim_list) if len(roi_msssim_list) > 0 else np.nan
-        avg_roi_lpips = np.mean(roi_lpips_list) if len(roi_lpips_list) > 0 else np.nan
-
         avg_cbr = np.mean([r["total_cbr"] for r in rows])
         avg_cr = np.mean([r["compression_ratio_1_over_cbr"] for r in rows])
         avg_roi_blocks = np.mean([r["roi_blocks"] for r in rows])
         avg_bg_blocks = np.mean([r["bg_blocks"] for r in rows])
 
-
         print("\n========== ROI Dual Full Inference Summary ==========")
         print(f"avg full PSNR = {avg_full_psnr:.4f}")
-        print(f"avg ROI PSNR = {avg_roi_psnr:.4f}")
-        print(f"avg ROI MS-SSIM = {avg_roi_msssim:.6f}")
-        print(f"avg ROI LPIPS = {avg_roi_lpips:.6f}")
-        print(f"avg BG PSNR = {avg_bg_psnr:.4f}")
         print(f"avg total CBR = {avg_cbr:.6f}")
         print(f"avg compression ratio = {avg_cr:.4f}")
         print(f"avg ROI blocks = {avg_roi_blocks:.2f} / 56")
@@ -925,5 +849,3 @@ def infer_roi_dual_full(
         print(f"avg ROI head time = {avg_roi_head_time:.4f} ms")
         print(f"avg ROI branch time = {avg_roi_branch_time:.4f} ms")
         print(f"avg BG branch time = {avg_bg_branch_time:.4f} ms")
-
-        
