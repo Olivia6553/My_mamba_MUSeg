@@ -83,12 +83,50 @@ def calc_region_psnr(x, y, mask_2d):
     return 10.0 * np.log10(1.0 / mse)
 
 
+# def calc_roi_block_metrics(x, y, metric_grid, cal_msssim, cal_lpips, block_h=128, block_w=128):
+#     """
+#     x, y: [1,3,896,1024], range [0,1]
+#     metric_grid: [7,8], 0/1，用于指定 ROI 评价区域
+#     return: roi_msssim, roi_lpips
+#     """
+#     roi_src_blocks = []
+#     roi_rec_blocks = []
+
+#     for r in range(metric_grid.shape[0]):
+#         for c in range(metric_grid.shape[1]):
+#             if int(metric_grid[r, c]) == 1:
+#                 y0, y1 = r * block_h, (r + 1) * block_h
+#                 x0, x1 = c * block_w, (c + 1) * block_w
+
+#                 roi_src_blocks.append(x[:, :, y0:y1, x0:x1])
+#                 roi_rec_blocks.append(y[:, :, y0:y1, x0:x1])
+
+#     if len(roi_src_blocks) == 0:
+#          None, None
+
+#     roi_src = torch.cat(roi_src_blocks, dim=0).clamp(0, 1)
+#     roi_rec = torch.cat(roi_rec_blocks, dim=0).clamp(0, 1)
+
+#     # 原项目 MS_SSIM 类返回的是 1 - MS-SSIM，所以这里再用 1 - loss
+#     roi_msssim = 1.0 - cal_msssim(roi_rec, roi_src).mean().item()
+
+#     # 按原项目 LPIPS 评估口径，直接输入 [0,1] 张量
+#     roi_lpips = cal_lpips(roi_rec, roi_src).mean().item()
+
+#     return roi_msssim, roi_lpips
+
 def calc_roi_block_metrics(x, y, metric_grid, cal_msssim, cal_lpips, block_h=128, block_w=128):
     """
     x, y: [1,3,896,1024], range [0,1]
     metric_grid: [7,8], 0/1，用于指定 ROI 评价区域
     return: roi_msssim, roi_lpips
     """
+    metric_grid = np.asarray(metric_grid)
+
+    # 没有 ROI 块时，不计算 ROI MS-SSIM / LPIPS
+    if metric_grid.sum() < 1:
+        return None, None
+
     roi_src_blocks = []
     roi_rec_blocks = []
 
@@ -101,20 +139,17 @@ def calc_roi_block_metrics(x, y, metric_grid, cal_msssim, cal_lpips, block_h=128
                 roi_src_blocks.append(x[:, :, y0:y1, x0:x1])
                 roi_rec_blocks.append(y[:, :, y0:y1, x0:x1])
 
+    # 再加一道保险
     if len(roi_src_blocks) == 0:
         return None, None
 
     roi_src = torch.cat(roi_src_blocks, dim=0).clamp(0, 1)
     roi_rec = torch.cat(roi_rec_blocks, dim=0).clamp(0, 1)
 
-    # 原项目 MS_SSIM 类返回的是 1 - MS-SSIM，所以这里再用 1 - loss
     roi_msssim = 1.0 - cal_msssim(roi_rec, roi_src).mean().item()
-
-    # 按原项目 LPIPS 评估口径，直接输入 [0,1] 张量
     roi_lpips = cal_lpips(roi_rec, roi_src).mean().item()
 
     return roi_msssim, roi_lpips
-
 
 def grid_to_full_mask(grid, block_h=128, block_w=128):
     """

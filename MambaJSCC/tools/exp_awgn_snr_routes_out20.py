@@ -57,6 +57,8 @@ def summarize_metrics(csv_path: Path):
         "num_images": len(rows),
         "avg_full_psnr": mean_col(rows, "full_psnr"),
         "avg_roi_psnr": mean_col(rows, "roi_psnr"),
+        "avg_roi_msssim": mean_col(rows, "roi_msssim"),
+        "avg_roi_lpips": mean_col(rows, "roi_lpips"),
         "avg_bg_psnr": mean_col(rows, "bg_psnr"),
         "avg_cbr": mean_col(rows, "total_cbr"),
         "avg_cr": mean_col(rows, "compression_ratio_1_over_cbr"),
@@ -73,6 +75,7 @@ def summarize_metrics(csv_path: Path):
     }
 
 
+
 def write_summary(summary_rows, save_path: Path):
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -83,6 +86,8 @@ def write_summary(summary_rows, save_path: Path):
         "num_images",
         "avg_full_psnr",
         "avg_roi_psnr",
+        "avg_roi_msssim",
+        "avg_roi_lpips",
         "avg_bg_psnr",
         "avg_cbr",
         "avg_cr",
