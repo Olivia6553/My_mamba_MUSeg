@@ -1,4 +1,6 @@
 import os
+import random
+import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -13,6 +15,14 @@ from utils.utils import seed_torch
 
 
 def train_branch(config, branch_type="roi"):
+    # ===== 固定随机种子，必须放在 DataLoader 和模型初始化之前 =====
+    seed_torch()
+
+    print(f"[Train] branch type = {branch_type}")
+    print(f"[Train] channel type = {config.CHANNEL.TYPE}")
+    print(f"[Train] encoder save path = {config.TRAIN.ENCODER_PATH}")
+    print(f"[Train] decoder save path = {config.TRAIN.DECODER_PATH}")
+
     # ===== 数据路径 =====
     image_dir = "/root/autodl-tmp/datasets/MUSeg/train_official/Image_1024x896"
     grid_dir  = "/root/autodl-tmp/datasets/MUSeg/train_official/BlockROI_binary_grid_7x8"
@@ -25,6 +35,14 @@ def train_branch(config, branch_type="roi"):
         block_h=128,
         block_w=128,
     )
+    def seed_worker(worker_id):
+        worker_seed = 1024 + worker_id
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
+    generator = torch.Generator()
+    generator.manual_seed(1024)
+
     train_loader = DataLoader(
         dataset,
         batch_size=config.DATA.TRAIN_BATCH,
@@ -32,6 +50,8 @@ def train_branch(config, branch_type="roi"):
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=True,
         drop_last=False,
+        worker_init_fn=seed_worker,
+        generator=generator,
     )
 
     encoder = Mamba_encoder(config).cuda()
@@ -82,7 +102,7 @@ def train_branch(config, branch_type="roi"):
     print(f"\n========== Train branch: {branch_type} ==========")
     print(config.MODEL.VSSM.EMBED_DIM, config.MODEL.VSSM.DEPTHS)
 
-    seed_torch()
+    # seed_torch()
 
     for e in range(config.TRAIN.EPOCHS):
         loss_ave = 0.0
